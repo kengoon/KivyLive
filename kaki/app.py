@@ -248,7 +248,7 @@ class App(BaseApp):
         Clock.unschedule(self.rebuild)
         Clock.schedule_once(self.rebuild, 0.1)
         if event.src_path.endswith(".py") or event.src_path.endswith(".kv"):
-            Clock.schedule_once(self.on_rebuild, 3)
+            Clock.schedule_once(self.on_rebuild, 0.1)
 
     def on_rebuild(self, *args):
         pass

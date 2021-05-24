@@ -66,7 +66,9 @@ class KivyLive(MDApp, HotReloaderApp):
 
     def on_rebuild(self, *args):
         if self.connected:
+            print(self.current)
             self.root.children[0].current = self.current if self.root.children[0].current != "ip" else "home"
+            print("yes")
 
     def thread_server_connection(self, ip):
         toast(f"establishing connection to {ip}:6051", background=self.theme_cls.primary_color) if ":" not in ip else \
