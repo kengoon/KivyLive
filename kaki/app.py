@@ -227,7 +227,6 @@ class App(BaseApp):
 
     @mainthread
     def _reload_from_watchdog(self, event):
-        print(event)
         from watchdog.events import FileModifiedEvent
         if not isinstance(event, FileModifiedEvent):
             return
