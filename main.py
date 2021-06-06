@@ -20,6 +20,9 @@ import pickle
 # This is needed for supporting Windows 10 with OpenGL < v2.0
 from kivymd.toast.kivytoast import toast
 
+if platform == "android":
+    from kvdroid import device_info
+
 if platform == "win":
     os.environ["KIVY_GL_BACKEND"] = "angle_sdl2"
 Logger.setLevel(LOG_LEVELS["debug"])
@@ -93,17 +96,35 @@ class KivyLive(MDApp, HotReloaderApp):
             pass
 
     def listen_4_update(self):
-        _header = int(self.client_socket.recv(self.HEADER_LENGTH))
-        _iter_chunks = _header // 1000
-        _chunk_remainder = _header % 1000
-        data = [
-            self.client_socket.recv(1000)
-            for _ in range(_iter_chunks)
-            if _iter_chunks >= 1
-        ]
-        data.append(self.client_socket.recv(_chunk_remainder))
-        data = b"".join(data)
-        load_initial_code = pickle.loads(data)
+        try:
+            _header = int(self.client_socket.recv(self.HEADER_LENGTH))
+            _iter_chunks = _header // 1000
+            _chunk_remainder = _header % 1000
+            data = [
+                self.client_socket.recv(1000)
+                for _ in range(_iter_chunks)
+                if _iter_chunks >= 1
+            ]
+            data.append(self.client_socket.recv(_chunk_remainder))
+            data = b"".join(data)
+            load_initial_code = pickle.loads(data)
+        except pickle.UnpicklingError as e:
+            exception = e
+            Logger.error(exception)
+            Clock.schedule_once(lambda x: toast(f"{exception}"))
+            Logger.info("UNPICKLING ERROR: It seems there was an unpickling error, Just hit the connect button again")
+            self.client_socket.close()
+            del self.client_socket
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            return
+        except ConnectionError as e:
+            exception = e
+            Logger.error(exception)
+            Clock.schedule_once(lambda x: toast(f"{exception}"))
+            Logger.info("SERVER DOWN?: Maybe, just check your server")
+            Clock.schedule_once(lambda x: toast(f"{exception}"))
+            return
+
         for i in load_initial_code:
             file_path = os.path.split(i)[0]
             try:
@@ -133,9 +154,15 @@ class KivyLive(MDApp, HotReloaderApp):
                     for _ in range(__chunks)
                     if __chunks >= 1
                 ]
-                code_data.append(self.client_socket.recv(__remainder))
+                code_data.append(self.client_socket.recv(__remainder)) if __remainder else None
                 code_data = b"".join(code_data)
-                self.update_code(pickle.loads(code_data))
+                try:
+                    _data = pickle.loads(code_data)
+                except pickle.UnpicklingError as e:
+                    Logger.error(e)
+                    Logger.info(f"Re-save: Save Your file again on the Client Updater(KivyLiveClient)")
+                    continue
+                self.update_code(_data)
         except (BrokenPipeError, ConnectionError, socket.error) as e:
             Logger.error(e)
             Clock.schedule_once(lambda x: toast("SERVER DOWN: Shutting down the connection", background=[1, 0, 0, 1]))
@@ -144,7 +171,7 @@ class KivyLive(MDApp, HotReloaderApp):
     def update_code(self, code_data):
         # write code
         file = code_data["data"]["file"]
-        with open(file, "w") as f:
+        with open(file if file != "liveappmain.py" else "main.py", "w") as f:
             f.write(code_data["data"]["code"])
         Logger.info(f"FILE UPDATE: {file} was updated by {code_data['address']}")
         Clock.schedule_once(

@@ -6,6 +6,9 @@ Kaki Application
 """
 
 import sys
+
+from kivymd.toast import toast
+
 original_argv = sys.argv
 
 import os
@@ -174,7 +177,9 @@ class App(BaseApp):
         from kivy.core.window import Window
         lbl = Factory.Label(
             text_size=(Window.width - 100, None),
-            text="{}\n\n{}".format(exc, tb or ""))
+            text="{}\n\n{}".format(exc, tb or ""),
+            color=[1, 0, 0, 1]
+        )
         self.set_widget(lbl)
 
     def bind_key(self, key, callback):
@@ -319,6 +324,12 @@ class App(BaseApp):
             except OSError:
                 os.spawnv(os.P_NOWAIT, sys.executable, cmd)
                 os._exit(0)
+            except ValueError:
+                Clock.schedule_once(
+                    lambda x: toast(
+                        "restart this app for update to main.py to take effect", background=[0, 1, 0, 1]
+                    ))
+                Logger.error("CAN'T UPDATE main.py: The update to main.py will take effect after you restart the app")
 
     def prepare_foreground_lock(self):
         """
