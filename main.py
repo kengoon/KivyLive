@@ -92,39 +92,29 @@ class KivyLive(MDApp, HotReloaderApp):
             self.connected = False
             exception = e
             Clock.schedule_once(lambda x: toast(f"{exception}", background=[1, 0, 0, 1]))
-        except:
-            pass
 
     def listen_4_update(self):
         try:
             _header = int(self.client_socket.recv(self.HEADER_LENGTH))
-            _iter_chunks = _header // 1000
-            _chunk_remainder = _header % 1000
-            data = [
-                self.client_socket.recv(1000)
-                for _ in range(_iter_chunks)
-                if _iter_chunks >= 1
-            ]
+            _iter_chunks, _chunk_remainder = divmod(_header, 1000)
+            data = [self.client_socket.recv(1000) for _ in range(_iter_chunks)]
             data.append(self.client_socket.recv(_chunk_remainder))
             data = b"".join(data)
             load_initial_code = pickle.loads(data)
         except pickle.UnpicklingError as e:
-            exception = e
-            Logger.error(exception)
-            Clock.schedule_once(lambda x: toast(f"{exception}"))
+            Logger.error(str(e))
+            Clock.schedule_once(lambda x: toast(str(e)))
             Logger.info("UNPICKLING ERROR: It seems there was an unpickling error, Just hit the connect button again")
+
             self.client_socket.close()
             del self.client_socket
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             return
         except ConnectionError as e:
-            exception = e
-            Logger.error(exception)
-            Clock.schedule_once(lambda x: toast(f"{exception}"))
+            Logger.error(str(e))
+            Clock.schedule_once(lambda _: toast(str(e)))
             Logger.info("SERVER DOWN?: Maybe, just check your server")
-            Clock.schedule_once(lambda x: toast(f"{exception}"))
             return
-
         for i in load_initial_code:
             file_path = os.path.split(i)[0]
             try:
@@ -147,8 +137,7 @@ class KivyLive(MDApp, HotReloaderApp):
                 #     )
                 #     Logger.info("SERVER DOWN: Shutting down the connection")
                 message_length = int(header)
-                __chunks = message_length // 1000
-                __remainder = message_length % 1000
+                __chunks, __remainder = divmod(message_length, 1000)
                 code_data = [
                     self.client_socket.recv(1000)
                     for _ in range(__chunks)
@@ -159,13 +148,15 @@ class KivyLive(MDApp, HotReloaderApp):
                 try:
                     _data = pickle.loads(code_data)
                 except pickle.UnpicklingError as e:
-                    Logger.error(e)
-                    Logger.info(f"Re-save: Save Your file again on the Client Updater(KivyLiveClient)")
+                    Logger.error(str(e))
+                    Logger.info("Re-save: Save Your file again on the Client Updater(KivyLiveClient)")
+
                     continue
                 self.update_code(_data)
-        except (BrokenPipeError, ConnectionError, socket.error) as e:
-            Logger.error(e)
+        except (ConnectionError, socket.error) as e:
+            Logger.error(str(e))
             Clock.schedule_once(lambda x: toast("SERVER DOWN: Shutting down the connection", background=[1, 0, 0, 1]))
+
             Logger.info("SERVER DOWN: Shutting down the connection")
 
     def update_code(self, code_data):
